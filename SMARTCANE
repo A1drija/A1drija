@@ -1,0 +1,118 @@
+//Buzzer stays continuously ON at 1-10 cm
+✅ Buzzer blinks (ON-OFF) for 5-30 cm
+✅ LED blinks for 10-30 cm
+✅ Vibration motor follows buzzer logic
+
+//
+ Power supply 4.5V live wire pin 40
+	ground-pin 3  with switch
+
+//
+Ultrasonic Sensor (HC-SR04)
+VCC → 3.3V (Raspberry Pi Pico)
+
+GND → GND
+
+Trig → GP12
+
+Echo → Voltage Divider (to GP14)
+
+Voltage Divider:
+
+Echo (from HC-SR04) → 2kΩ → GP14
+
+GP14 → 1kΩ → GND
+
+2️⃣ LED (Blinking for 10-30 cm)
+Anode (+) → GP16 (through 100Ω resistor)
+
+Cathode (-) → GND
+
+3️⃣ Buzzer (Louder Sound using BC547 Transistor, On 5-30 cm pulasting ,1-10 continuous)
+Buzzer (+) → Collector of BC547
+
+Buzzer (-) → GND
+
+BC547 Emitter → GND
+
+BC547 Base → GP22 (via 1kΩ resistor)
+
+4️⃣ Vibration Motor (On 5-30 cm, Direct Connection)
+Motor (+) → GP15
+
+Motor (-) → GND
+
+
+from machine import Pin, time_pulse_us
+import time
+
+# Define GPIO pins
+TRIG = Pin(12, Pin.OUT)    # HC-SR04 Trigger
+ECHO = Pin(14, Pin.IN)     # HC-SR04 Echo (via resistor voltage divider)
+LED = Pin(16, Pin.OUT)     # LED (Blinks for 10-30 cm)
+BUZZER = Pin(22, Pin.OUT)  # Buzzer (via BC547)
+MOTOR = Pin(15, Pin.OUT)   # Vibration Motor
+
+# Initialize components
+TRIG.low()
+LED.low()
+BUZZER.low()
+MOTOR.low()
+
+def measure_distance():
+    TRIG.low()
+    time.sleep_us(2)
+    
+    TRIG.high()
+    time.sleep_us(10)
+    TRIG.low()
+
+    pulse_duration = time_pulse_us(ECHO, 1, 30000)  # Timeout after 30ms
+    
+    if pulse_duration < 0:
+        return -1  # Indicate out of range or error
+
+    distance = (pulse_duration * 0.0343) / 2  # Convert to cm
+    return distance
+
+while True:
+    distance = measure_distance()
+    
+    if distance == -1:
+        print("Out of range or error")
+        LED.low()
+        BUZZER.low()
+        MOTOR.low()
+    else:
+        print("Distance: {:.2f} cm".format(distance))
+
+        # LED Blinks if distance is 10-30 cm
+        if 10 <= distance < 30:
+            LED.high()
+            time.sleep(0.2)
+            LED.low()
+            time.sleep(0.2)
+        else:
+            LED.low()
+
+        # Buzzer and Motor ON for 5-30 cm range
+        if 5 <= distance < 30:
+            BUZZER.high()
+            MOTOR.high()
+            time.sleep(0.2)
+            BUZZER.low()
+            MOTOR.low()
+            time.sleep(0.2)
+        else:
+            BUZZER.low()
+            MOTOR.low()
+
+        # Continuous buzzer ON when distance is 1-10 cm
+        if 1 <= distance < 10:
+            BUZZER.high()  # Buzzer stays ON
+            MOTOR.high()   # Motor stays ON
+        else:
+            BUZZER.low()
+            MOTOR.low()
+
+    time.sleep(0.3)  # Main loop delay
